@@ -1,5 +1,6 @@
 from __future__ import print_function
 import json
+import os
 import re
 import urllib2
 import urlparse
@@ -89,7 +90,6 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IScannerCheck, ITab, 
     def extensionUnloaded(self):
         print("HUNT - Scanner plugin unloaded")
         return
-
 
 class View:
     def __init__(self, issues):
@@ -416,7 +416,6 @@ class PopupListener(ActionListener):
         if is_intruder_match:
             self.callbacks.sendToIntruder(self.host, self.port, self.use_https, self.request)
 
-
 class TSL(TreeSelectionListener):
     def __init__(self, view):
         self.view = view
@@ -424,6 +423,7 @@ class TSL(TreeSelectionListener):
         self.pane = view.get_pane()
         self.scanner_issues = view.get_scanner_issues()
         self.scanner_panes = view.get_scanner_panes()
+        print("works")
 
     def valueChanged(self, tse):
         pane = self.pane
@@ -461,6 +461,7 @@ class TSL(TreeSelectionListener):
                 if not is_scanner_panes:
                     self.view.create_scanner_pane(scanner_pane, issue_name, issue_param)
                     self.view.set_is_scanner_pane(scanner_pane)
+                    print("Create first scanner pane")
                 else:
                     # Check if the scanner pane exists.
                     is_scanner_pane = self.view.get_is_scanner_pane(scanner_pane)
@@ -468,10 +469,12 @@ class TSL(TreeSelectionListener):
                     # If the scanner pane exists, go ahead and show it.
                     if is_scanner_pane:
                         self.view.set_scanner_pane(scanner_pane)
+                        print("Scanner pane exists")
                     # Else, create a new scanner pane and keep track of it.
                     else:
                         self.view.create_scanner_pane(scanner_pane, issue_name, issue_param)
                         self.view.set_is_scanner_pane(scanner_pane)
+                        print("Scanner pane does not exist so make one")
 
                 pane.setRightComponent(scanner_pane)
             else:
@@ -501,8 +504,10 @@ class Issues:
         self.set_issues()
 
     def set_json(self):
-        with open("./conf/issues.json") as data_file:
-            self.json = json.load(data_file)
+        data_file = os.getcwd() + os.sep + "conf" + os.sep + "issues.json"
+
+        with open(data_file) as data:
+            self.json = json.load(data)
 
     def get_json(self):
         return self.json
