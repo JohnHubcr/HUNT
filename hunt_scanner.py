@@ -4,13 +4,12 @@ import re
 import urllib2
 import urlparse
 from burp import IBurpExtender
-from burp import IExtensionStateListener
 from burp import IContextMenuFactory
+from burp import IExtensionStateListener
+from burp import IMessageEditorController
 from burp import IScanIssue
 from burp import IScannerCheck
 from burp import ITab
-from burp import IMessageEditorController
-from burp import ITextEditor
 from java.awt import Desktop
 from java.awt import Dimension
 from java.awt import EventQueue
@@ -47,7 +46,7 @@ class Run(Runnable):
     def run(self):
         self.runner()
 
-class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory, IScannerCheck, ITab, ITextEditor):
+class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory, IScannerCheck, ITab, IMessageEditorController):
     EXTENSION_NAME = "HUNT - Scanner"
 
     def __init__(self):
@@ -95,27 +94,6 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory, 
     def extensionUnloaded(self):
         print("HUNT - Scanner plugin unloaded")
         return
-
-
-class StaticMessageController(IMessageEditorController):
-    def __init__(self, iHttpService, request, response):
-        self._iHttpService = iHttpService
-        self._request = request
-        self._response = response
-
-    def __init__(self, requestResponse):
-        self._iHttpService = requestResponse.getHttpService()
-        self._request = requestResponse.getRequest()
-        self._response = requestResponse.getResponse()
-
-    def getRequest(self):
-        return self._request
-
-    def getResponse(self):
-        return self._response
-
-    def getIHttpService(self):
-        return self._iHttpService
 
 
 class View:
@@ -346,26 +324,36 @@ class View:
 
         return JScrollPane(advisory_pane)
 
+    # TODO: Refactor into one function
     def set_request_tab_pane(self, scanner_issue):
         request_response = scanner_issue.getRequestResponse()
 
         # IMessageEditor
-        controller = StaticMessageController(request_response)
-        msgEditor = self.callbacks.createMessageEditor(controller, True)
-        msgEditor.setMessage(request_response.getRequest(), True)
+        controller = MessageController(request_response)
+        message_editor = self.callbacks.createMessageEditor(controller, True)
+        message_editor.setMessage(request_response.getRequest(), True)
+        component = message_editor.getComponent()
 
-        return msgEditor.getComponent()
+        # Set a context menu
+        self.set_context_menu(component, scanner_issue)
 
+        return component
+
+    # TODO: Refactor into one function
     def set_response_tab_pane(self, scanner_issue):
         request_response = scanner_issue.getRequestResponse()
 
         # IMessageEditor
-        controller = StaticMessageController(request_response)
-        msgEditor = self.callbacks.createMessageEditor(controller, True)
-        msgEditor.setMessage(request_response.getResponse(), False)
+        controller = MessageController(request_response)
+        message_editor = self.callbacks.createMessageEditor(controller, True)
+        message_editor.setMessage(request_response.getResponse(), False)
+        component = message_editor.getComponent()
 
-        self.set_context_menu(msgEditor, scanner_issue)
-        return msgEditor.getComponent()
+        # Set a context menu
+        self.set_context_menu(component, scanner_issue)
+
+        return component
+
     # Pass scanner_issue as argument
     def set_context_menu(self, component, scanner_issue):
         self.context_menu = JPopupMenu()
@@ -386,6 +374,26 @@ class View:
 
     def get_context_menu(self):
         return self.context_menu
+
+class MessageController(IMessageEditorController):
+    def __init__(self, http_service, request, response):
+        self._http_service = http_service
+        self._request = request
+        self._response = response
+
+    def __init__(self, request_response):
+        self._http_service = request_response.getHttpService()
+        self._request = request_response.getRequest()
+        self._response = request_response.getResponse()
+
+    def getRequest(self):
+        return self._request
+
+    def getResponse(self):
+        return self._response
+
+    def getIHttpService(self):
+        return self._http_service
 
 class LinkListener(HyperlinkListener):
     def hyperlinkUpdate(self, hle):
