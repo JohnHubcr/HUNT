@@ -1,8 +1,9 @@
 from __future__ import print_function
 import json
 from burp import IBurpExtender
-from burp import IExtensionStateListener
 from burp import IContextMenuFactory
+from burp import IExtensionStateListener
+from burp import IMessageEditorController
 from burp import ITab
 from burp import ITextEditor
 from java.awt import Color
@@ -39,7 +40,7 @@ class Run(Runnable):
     def run(self):
         self.runner()
 
-class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory, ITab, ITextEditor):
+class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory, ITab, IMessageEditorController):
     EXTENSION_NAME = "HUNT - Methodology"
 
     def __init__(self):
@@ -400,10 +401,11 @@ class View:
         request_body = StringUtil.fromBytes(raw_request)
         request_body = request_body.encode("utf-8")
 
-        request_tab_textarea = self.callbacks.createTextEditor()
-        component = request_tab_textarea.getComponent()
-        request_tab_textarea.setText(request_body)
-        request_tab_textarea.setEditable(False)
+        # IMessageEditor
+        controller = MessageController(request_response)
+        message_editor = self.callbacks.createMessageEditor(controller, True)
+        message_editor.setMessage(request_response.getRequest(), True)
+        component = message_editor.getComponent()
 
         return component
 
@@ -412,10 +414,11 @@ class View:
         response_body = StringUtil.fromBytes(raw_response)
         response_body = response_body.encode("utf-8")
 
-        response_tab_textarea = self.callbacks.createTextEditor()
-        component = response_tab_textarea.getComponent()
-        response_tab_textarea.setText(response_body)
-        response_tab_textarea.setEditable(False)
+       # IMessageEditor
+        controller = MessageController(request_response)
+        message_editor = self.callbacks.createMessageEditor(controller, True)
+        message_editor.setMessage(request_response.getResponse(), False)
+        component = message_editor.getComponent()
 
         return component
 
@@ -507,6 +510,26 @@ class SettingsAction(ActionListener):
 
         with open(save_file, 'w') as out_file:
             json.dump(data.get_checklist(), out_file, indent=2, sort_keys=True)
+
+class MessageController(IMessageEditorController):
+    def __init__(self, http_service, request, response):
+        self._http_service = http_service
+        self._request = request
+        self._response = response
+
+    def __init__(self, request_response):
+        self._http_service = request_response.getHttpService()
+        self._request = request_response.getRequest()
+        self._response = request_response.getResponse()
+
+    def getRequest(self):
+        return self._request
+
+    def getResponse(self):
+        return self._response
+
+    def getIHttpService(self):
+        return self._http_service
 
 class TSL(TreeSelectionListener):
     def __init__(self, view):
