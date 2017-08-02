@@ -296,7 +296,6 @@ class View:
 
             if is_same_issue:
                 current_issue = scanner_issue
-                self.set_context_menu(request_list, scanner_issue)
                 break
 
         advisory_tab_pane = self.set_advisory_tab_pane(current_issue)
@@ -319,9 +318,6 @@ class View:
         advisory_pane.setText(fmt.format(scanner_issue.getUrl(),
                                          scanner_issue.getIssueDetail()))
 
-        # Set a context menu
-        self.set_context_menu(advisory_pane, scanner_issue)
-
         return JScrollPane(advisory_pane)
 
     # TODO: Refactor into one function
@@ -333,9 +329,6 @@ class View:
         message_editor = self.callbacks.createMessageEditor(controller, True)
         message_editor.setMessage(request_response.getRequest(), True)
         component = message_editor.getComponent()
-
-        # Set a context menu
-        self.set_context_menu(component, scanner_issue)
 
         return component
 
@@ -349,31 +342,7 @@ class View:
         message_editor.setMessage(request_response.getResponse(), False)
         component = message_editor.getComponent()
 
-        # Set a context menu
-        self.set_context_menu(component, scanner_issue)
-
         return component
-
-    # Pass scanner_issue as argument
-    def set_context_menu(self, component, scanner_issue):
-        self.context_menu = JPopupMenu()
-
-        repeater = JMenuItem("Send to Repeater")
-        repeater.addActionListener(PopupListener(scanner_issue, self.callbacks))
-
-        intruder = JMenuItem("Send to Intruder")
-        intruder.addActionListener(PopupListener(scanner_issue, self.callbacks))
-
-        hunt = JMenuItem("Send to HUNT")
-
-        self.context_menu.add(repeater)
-        self.context_menu.add(intruder)
-
-        context_menu_listener = ContextMenuListener(component, self.context_menu)
-        component.addMouseListener(context_menu_listener)
-
-    def get_context_menu(self):
-        return self.context_menu
 
 class MessageController(IMessageEditorController):
     def __init__(self, http_service, request, response):
@@ -423,29 +392,6 @@ class ScannerTableListener(TableModelListener):
 
         if is_changed:
             self.view.set_scanner_count(is_checked, self.issue_name, self.issue_param)
-
-class ContextMenuListener(MouseAdapter):
-    def __init__(self, component, context_menu):
-        self.component = component
-        self.context_menu = context_menu
-
-    def mousePressed(self, e):
-        is_right_click = SwingUtilities.isRightMouseButton(e)
-
-        if is_right_click:
-            self.check(e)
-
-    def check(self, e):
-        is_list = isinstance(self.component, JList)
-
-        if is_list:
-            is_selection = self.component.getSelectedValue() is not None
-            is_trigger = e.isPopupTrigger()
-            is_context_menu = is_selection and is_trigger
-            index = self.component.locationToIndex(e.getPoint())
-            self.component.setSelectedIndex(index)
-
-        self.context_menu.show(self.component, e.getX(), e.getY())
 
 class PopupListener(ActionListener):
     def __init__(self, scanner_issue, callbacks):
