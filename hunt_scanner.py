@@ -4,7 +4,6 @@ import re
 import urllib2
 import urlparse
 from burp import IBurpExtender
-from burp import IContextMenuFactory
 from burp import IExtensionStateListener
 from burp import IMessageEditorController
 from burp import IScanIssue
@@ -46,7 +45,7 @@ class Run(Runnable):
     def run(self):
         self.runner()
 
-class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory, IScannerCheck, ITab, IMessageEditorController):
+class BurpExtender(IBurpExtender, IExtensionStateListener, IScannerCheck, ITab, IMessageEditorController):
     EXTENSION_NAME = "HUNT - Scanner"
 
     def __init__(self):
@@ -61,7 +60,6 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory, 
         self.callbacks.registerExtensionStateListener(self)
         self.callbacks.setExtensionName(self.EXTENSION_NAME)
         self.callbacks.addSuiteTab(self)
-        self.callbacks.registerContextMenuFactory(self)
         self.callbacks.registerScannerCheck(self)
 
     def doPassiveScan(self, request_response):
@@ -81,9 +79,6 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory, 
 
         # Do not show any Bugcrowd found issues in the Scanner window
         return []
-
-    def createMenuItems(self, invocation):
-        return self.view.get_context_menu()
 
     def getTabCaption(self):
         return self.EXTENSION_NAME
