@@ -9,6 +9,7 @@ from burp import IContextMenuFactory
 from burp import IScanIssue
 from burp import IScannerCheck
 from burp import ITab
+from burp import IMessageEditorController
 from burp import ITextEditor
 from java.awt import Desktop
 from java.awt import Dimension
@@ -94,6 +95,28 @@ class BurpExtender(IBurpExtender, IExtensionStateListener, IContextMenuFactory, 
     def extensionUnloaded(self):
         print("HUNT - Scanner plugin unloaded")
         return
+
+
+class StaticMessageController(IMessageEditorController):
+    def __init__(self, iHttpService, request, response):
+        self._iHttpService = iHttpService
+        self._request = request
+        self._response = response
+
+    def __init__(self, requestResponse):
+        self._iHttpService = requestResponse.getHttpService()
+        self._request = requestResponse.getRequest()
+        self._response = requestResponse.getResponse()
+
+    def getRequest(self):
+        return self._request
+
+    def getResponse(self):
+        return self._response
+
+    def getIHttpService(self):
+        return self._iHttpService
+
 
 class View:
     def __init__(self, issues):
@@ -324,36 +347,25 @@ class View:
         return JScrollPane(advisory_pane)
 
     def set_request_tab_pane(self, scanner_issue):
-        raw_request = scanner_issue.getRequestResponse().getRequest()
-        request_body = StringUtil.fromBytes(raw_request)
-        request_body = request_body.encode("utf-8")
+        request_response = scanner_issue.getRequestResponse()
 
-        request_tab_textarea = self.callbacks.createTextEditor()
-        component = request_tab_textarea.getComponent()
-        request_tab_textarea.setText(request_body)
-        request_tab_textarea.setEditable(False)
-        request_tab_textarea.setSearchExpression(scanner_issue.getParameter())
+        # IMessageEditor
+        controller = StaticMessageController(request_response)
+        msgEditor = self.callbacks.createMessageEditor(controller, True)
+        msgEditor.setMessage(request_response.getRequest(), True)
 
-        # Set a context menu
-        self.set_context_menu(component, scanner_issue)
-
-        return component
+        return msgEditor.getComponent()
 
     def set_response_tab_pane(self, scanner_issue):
-        raw_response = scanner_issue.getRequestResponse().getResponse()
-        response_body = StringUtil.fromBytes(raw_response)
-        response_body = response_body.encode("utf-8")
+        request_response = scanner_issue.getRequestResponse()
 
-        response_tab_textarea = self.callbacks.createTextEditor()
-        component = response_tab_textarea.getComponent()
-        response_tab_textarea.setText(response_body)
-        response_tab_textarea.setEditable(False)
+        # IMessageEditor
+        controller = StaticMessageController(request_response)
+        msgEditor = self.callbacks.createMessageEditor(controller, True)
+        msgEditor.setMessage(request_response.getResponse(), False)
 
-        # Set a context menu
-        self.set_context_menu(component, scanner_issue)
-
-        return component
-
+        self.set_context_menu(msgEditor, scanner_issue)
+        return msgEditor.getComponent()
     # Pass scanner_issue as argument
     def set_context_menu(self, component, scanner_issue):
         self.context_menu = JPopupMenu()
@@ -455,6 +467,7 @@ class PopupListener(ActionListener):
         if is_intruder_match:
             self.callbacks.sendToIntruder(self.host, self.port, self.use_https, self.request)
 
+
 class TSL(TreeSelectionListener):
     def __init__(self, view):
         self.view = view
@@ -467,7 +480,7 @@ class TSL(TreeSelectionListener):
         pane = self.pane
         node = self.tree.getLastSelectedPathComponent()
 
-        if node is None:
+        if node is None or node.getParent() is None:
             return
 
         issue_name = node.getParent().toString()
